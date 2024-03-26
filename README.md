@@ -7,7 +7,7 @@ Proyecto que realicé en la universidad para hallar y graficar la frontera efici
 
 ## Contenido
  - Archivo principal de la Shinnyapp `app.R`
- - Carpeta con ejemplos de dataset
+ - Carpeta con ejemplos de dataset `datasets/`
 
 **Inputs:** Archivo csv o Excel con el historico de precios del universo de inversión a analizar(una accion por columna).
             En [datasets/](/datasets/) existen algunos ejemplos. Puede obtener su propios datos en Investing, Yahoo Finance, etc.
@@ -34,7 +34,7 @@ library(tidyverse)
  
 ## Deploy
 
-  **Link:** ()  
+  **Link:** (https://luis-miguel-lml-vargas.shinyapps.io/Markowitz_Portfolio/)  
 
 
 

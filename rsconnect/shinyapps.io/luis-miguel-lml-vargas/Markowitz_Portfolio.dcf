@@ -1,0 +1,12 @@
+name: Markowitz_Portfolio
+title: Markowitz_Portfolio
+username: luis-miguel-lml-vargas
+account: luis-miguel-lml-vargas
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11593894
+bundleId: 8421066
+url: https://luis-miguel-lml-vargas.shinyapps.io/Markowitz_Portfolio/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
