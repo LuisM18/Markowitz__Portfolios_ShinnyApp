@@ -6,8 +6,8 @@ Proyecto que realicé en la universidad para hallar y graficar la frontera efici
 ![Screenshot](/img/frontera.png)
 
 ## Contenido
- - Archivo principal de la Shinnyapp
- - Carpeta 
+ - Archivo principal de la Shinnyapp `app.R`
+ - Carpeta con ejemplos de dataset
 
 **Inputs:** Archivo csv o Excel con el historico de precios del universo de inversión a analizar(una accion por columna).
             En [datasets/](/datasets/) existen algunos ejemplos. Puede obtener su propios datos en Investing, Yahoo Finance, etc.
