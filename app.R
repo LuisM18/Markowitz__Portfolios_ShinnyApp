@@ -12,7 +12,7 @@ library(tidyverse)
 
 "
 Author: LuisM18
-License: 
+License: Creative Commons Legal Code 1.0 Universal
 "
 theme_set(theme_bw())
 
