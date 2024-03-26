@@ -6,15 +6,17 @@ library(pracma)
 library(shinyFeedback)
 library(readxl)
 library(vroom)
+library(formattable)
+library(DT)
+library(patchwork)
+library(ggiraph)
+library(tidyverse)
 
 "
 Author: LuisM18
 License: 
 "
-
-porcentaje = function(valor){
-  return(paste( round( valor, 4 ) * 100 , "%"))
-}
+theme_set(theme_bw())
 
 ui <- navbarPage(title = "Optimización de portafolios", #Config page
                  theme = shinytheme("sandstone"),
@@ -32,21 +34,19 @@ ui <- navbarPage(title = "Optimización de portafolios", #Config page
                                          selected = ",")
                           ),
                           mainPanel(
-                            tableOutput("datos"))),
+                            dataTableOutput("datos"))),
                  tabPanel("Dominancia",
-                          plotOutput("domg",width = "100%"),
-                          
                           fluidRow(
-                            column(4,
-                                   h2(strong("Dominancia")),
+                            column(4,offset = 3,
                                    numericInput("ndom","Dominantes",5,
-                                                2, 10, 1)
+                                                2, 10, 1),
+                                   h2(strong("Perfil individual")),   
+                                   dataTableOutput("domt")
                             ),br(),
                             column(4,
-                                   h2(strong("Perfil individual")),   
-                                   tableOutput("domt")
-                                   
-                            ))),
+                                   plotOutput("domg",width = "100%",click = 'dom_click',hover = 'dom_hover')
+                            )),
+                            plotOutput("gactivo",width = '100%')),
                  tabPanel("Frontera eficiente",
                           titlePanel("Frontera eficiente"),
                           tabsetPanel(
@@ -84,6 +84,7 @@ server <- function(input, output) {
     dom = matrix(nrow=ncol(rh),ncol=4)
     colnames(dom) = c("Activo","Rentabilidad","Riesgo","Sharpe")
     
+    
     for(i in 1:nrow(dom)){
       dom[i,2]= ((1+mean(rh[,i]))^365)-1
     }
@@ -95,7 +96,6 @@ server <- function(input, output) {
     }
     dom = data.frame(dom)
     dom$Activo  = colnames(datos)
-    dom = apply(dom[,c(2,3)],2,porcentaje)  
     dom = dom[order(-dom$Sharpe),]
     dominantes = dom[1:n,c(1,2,3,4)]
     return(dominantes)
@@ -127,7 +127,7 @@ server <- function(input, output) {
     }
     colnames(wi)= dom[,1]
     port = data.frame(rp,vp,sp,wi)
-    colnames(port)=c("Rent","Riesgo","Sharpe",colnames(wi))
+    colnames(port)=c("Rentabilidad","Riesgo","Sharpe",colnames(wi))
     return(port)
   }
   
@@ -138,14 +138,13 @@ server <- function(input, output) {
       if(sharpe==f[i,3]){
         rc = f[i,1]
         vc = f[i,2]
-        wc = f[i,3:3+ndom]
       }
     }
-    tan = (rc-rf)/vc
-    optimo = c(tan,rc,vc)
+    optimo = c(paste(round(rc*100,2),'%'),paste(round(vc*100,2),'%'))
     return(optimo)
   }
   
+
   data <- reactive({
     req(input$archivo)
     file = input$archivo
@@ -163,30 +162,55 @@ server <- function(input, output) {
     )
   })
   
-  output$datos <- renderTable(data(),digits = 3)
-  
-  output$domt = renderTable({
-    datos <- data()
-    return(dominantes(datos,input$ndom))
+  output$datos <- renderDataTable({
+    datos = data()
     
-  },digits = 5)
+    # Si Date existe sera rownames, sino seq
+    
+    return(datatable(datos) %>% formatCurrency(colnames(datos),'$'))
+    
+    })
+  
+  output$domt = renderDataTable({
+    datos <- datatable(dominantes(data(),input$ndom),
+                       options = list(dom = "t",
+                                      ordering = FALSE,
+                                      paging = FALSE,
+                                      searching = FALSE),
+                       selection = 'none',
+                       rownames = FALSE,
+                       class = 'row-border') %>% formatPercentage(c('Rentabilidad','Riesgo'),2) %>% formatCurrency('Sharpe','')  
+    return(datos)
+    })
   
   output$domg = renderPlot({
     datos <- data()
     d = dominantes(datos,input$ndom)
-    
+
     ggplot(d, aes(x = Riesgo, y = Rentabilidad, color = Activo)) +
-      geom_point(size = 7) +
+      geom_point_interactive(size = 10) +
       theme_bw() +
       xlab("Riesgo") + ylab("Rentabilidad esperada") +
       scale_y_continuous(labels=percent , limits = c(0, max(d[,2])+0.001)) +
-      scale_x_continuous(labels =percent , limits = c(0, max(d[,3])+0.001))
+      scale_x_continuous(labels =percent , limits = c(0, max(d[,3])+0.001)) 
     
   })
   
+    output$gactivo = renderPlot({
+      req(input$dom_click)
+      points = nearPoints(dominantes(data(),input$ndom),input$dom_click,xvar = "Riesgo", yvar = "Rentabilidad" ,maxpoints = 1)
+      
+      datos = data()
+        ggplot(datos) + 
+        aes(x= linspace(0,100,dim(datos)[1])  ,y =datos[[points$Activo]],group = 1,color) +
+        geom_line(linewidth= 2) +
+        xlab("Fecha") + ylab(points$Activo)
+
+  })
+
   output$nfront = renderDataTable({
-    datos <- data()
-    port = frontera(datos,input$ndom,input$nport)
+    datos <- frontera(data(),input$ndom,input$nport)
+    port = datatable(datos) %>% formatPercentage(colnames(datos)[!colnames(datos) == 'Sharpe'],2) %>% formatCurrency('Sharpe','')
     return(port)
   })
   
@@ -194,24 +218,23 @@ server <- function(input, output) {
     datos <- data()
     port = frontera(datos,input$ndom,input$nport)
     
-    ggplot(port, aes(x = Riesgo, y = Rent)) +
-      geom_point(size = 1) +
-      theme_bw() +
+    ggplot(port, aes(x = Riesgo, y = Rentabilidad)) +
+      geom_point(aes(colour = Sharpe)) +
       xlab("Riesgo") + ylab("Rentabilidad esperada") +
-      scale_y_continuous(labels=percent , limits = c(0, max(port[,1]))) +
-      scale_x_continuous(labels =percent , limits = c(0, max(port[,2])))
-    
+      scale_y_continuous(labels=percent) +
+      scale_x_continuous(labels =percent)+
+      scale_colour_gradient2(midpoint = mean(port[,3]), low = 'red',mid = 'orange',high = 'green',guide = FALSE)
   })
   
   output$tan = renderTable({
     datos <- data()
     opt = optimo(datos,input$rf/100,input$ndom,input$nport)
-    tabla = matrix(nrow=3,ncol=2)
+    tabla = matrix(nrow=2,ncol=2)
     tabla[,2]= opt 
-    tabla[,1]= c("Tan","Rentabilidad","Riesgo")
+    tabla[,1]= c("Rentabilidad Esperada","Riesgo")
     colnames(tabla)= c("Portafolio Optimo"," ")
     return(tabla)
-  },digits = 4)
+  },digits = 4,spacing= 's')
 }
 
 shinyApp(ui = ui, server = server)
